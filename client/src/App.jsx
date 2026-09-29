@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation} from 'react-router-dom';
 import Header from './components/layout/Header';
 //import Footer from './components/layout/Footer';
 import Home from './pages/Home';
@@ -6,15 +6,18 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import About from "./pages/About";
+import Skills from "./pages/Skills";
+import Resume from "./pages/Resume";
 
-function App() {
+const AppContent = () => {
+  const loction = useLocation();
+
+  const isDashboardRoute = loction.pathname.startsWith('/dashboard');
+
   return (
-    <BrowserRouter>
-      <div style={appStyle}>
-        {/* Header appears on all pages */}
-        <Header/>{/* <Header /> */}
+    <div style={appStyle}>
+      {!isDashboardRoute && <Header />}
 
-        {/* Main content area */}
         <main style={mainStyle}>
           <Routes>
             {/* Define your routes here */}
@@ -23,7 +26,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            
+            <Route path="/dashboard/skills" element={<Skills />} />
+            <Route path="/dashboard/resume" element={<Resume />} />
             {/* 404 Page - catches all unmatched routes */}
             <Route path="*" element={<NotFound />} />
           </Routes>
@@ -32,7 +36,6 @@ function App() {
         {/* Footer appears on all pages */}
         
       </div>
-    </BrowserRouter>
   );
 }
 
@@ -50,11 +53,19 @@ const appStyle = {
   display: 'flex',
   flexDirection: 'column',
   minHeight: '100vh',
-};
+}; 
 
 const mainStyle = {
   flex: 1,
   paddingTop: '70px',
 };
+
+const App = () => {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  );
+} 
 
 export default App;

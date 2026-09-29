@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./config/database.js";
 import userRoutes from "./routes/userRoutes.js";
+import skillRoutes from "./routes/skillRoutes.js";
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ app.use(cors({
 app.use(express.json());
 
 app.use("/api/users",userRoutes);
+app.use("/api/skills",skillRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ message: "Server is running!" });
