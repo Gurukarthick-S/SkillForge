@@ -12,10 +12,12 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@google/genai": "^2.30.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "groq-sdk": "^1.6.0",
     "mogoose": "^0.0.1-security",
     "mongoose": "^9.7.0"
   },
