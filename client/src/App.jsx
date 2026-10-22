@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import About from "./pages/About";
 import Skills from "./pages/Skills";
 import Resume from "./pages/Resume";
+import Mentor from "./pages/Mentor";
 
 const AppContent = () => {
   const loction = useLocation();
@@ -28,6 +29,7 @@ const AppContent = () => {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dashboard/skills" element={<Skills />} />
             <Route path="/dashboard/resume" element={<Resume />} />
+            <Route path="/dashboard/mentor" element={<Mentor />} />
             {/* 404 Page - catches all unmatched routes */}
             <Route path="*" element={<NotFound />} />
           </Routes>
