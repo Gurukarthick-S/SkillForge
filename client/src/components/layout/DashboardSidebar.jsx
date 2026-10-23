@@ -5,7 +5,6 @@ import {
   BriefcaseBusiness,
   ChartNoAxesColumnIncreasing,
   Map,
-  FolderKanban,
   Bot,
   User,
   Settings,
@@ -36,13 +35,8 @@ const DashboardSidebar = () => {
     },
     {
       name: "Learning Plan",
-      path: "/dashboard/learning-plan",
+      path: "/dashboard/choose-skill",
       icon: Map,
-    },
-    {
-      name: "Projects",
-      path: "/dashboard/projects",
-      icon: FolderKanban,
     },
     {
       name: "AI Mentor",

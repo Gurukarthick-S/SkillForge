@@ -1,373 +1,529 @@
-import { useState, useRef } from "react";
+
+import { useRef, useState } from "react";
 import {
+  Upload,
   FileText,
-  UploadCloud,
+  FileCheck,
   X,
-  CheckCircle2,
   ArrowRight,
-  ChevronRight,
-  Lightbulb,
+  LoaderCircle,
+  ShieldCheck,
+  CheckCircle2,
+  AlertCircle,
+  Sparkles,
+  RotateCcw,
 } from "lucide-react";
+
 import DashboardSidebar from "../components/layout/DashboardSidebar";
 
-const RECENT_FILES = [
-  { name: "Resume_2026_SeniorPM.pdf", date: "Uploaded Aug 14" },
-];
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-const TIPS = [
-  "Use a clean and simple format (avoid graphics, tables, columns).",
-  "Include relevant keywords from the job description.",
-  "Keep your resume 1-2 pages.",
-];
-
-function bytesToSize(bytes) {
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-}
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function ResumeUploadPage() {
-  const [dragging, setDragging] = useState(false);
-  const [file, setFile] = useState(null);
-  const [stage, setStage] = useState("idle"); // idle | reading | done
-  const [error, setError] = useState("");
-
   const inputRef = useRef(null);
 
-  const acceptTypes = [".pdf", ".doc", ".docx"];
-  const maxBytes = 5 * 1024 * 1024;
+  const [file, setFile] = useState(null);
+  const [dragging, setDragging] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+  const [jobDescription, setJobDescription] = useState("");
+  const [error, setError] = useState("");
 
-  const acceptFile = (f) => {
-    const ext = "." + f.name.split(".").pop().toLowerCase();
+  function acceptFile(selectedFile) {
+    if (!selectedFile) return;
 
-    // Validate file type
-    if (!acceptTypes.includes(ext)) {
-      setError(
-        "That file type isn't supported. Use PDF, DOC, or DOCX."
-      );
-      setFile(null);
-      setStage("idle");
-      return;
-    }
-
-    // Validate file size
-    if (f.size > maxBytes) {
-      setError(
-        "That file is over 5 MB. Try a smaller version."
-      );
-      setFile(null);
-      setStage("idle");
-      return;
-    }
-
-    // Valid file
     setError("");
-    setFile(f);
-    setStage("reading");
+    setAnalysis(null);
 
-    setTimeout(() => {
-      setStage("done");
-    }, 1400);
-  };
+    const allowedExtensions = [".pdf", ".docx"];
+    const fileName = selectedFile.name.toLowerCase();
 
-  const onDrop = (e) => {
-    e.preventDefault();
+    if (!allowedExtensions.some((ext) => fileName.endsWith(ext))) {
+      setError("Please upload a PDF or DOCX file.");
+      return;
+    }
+
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      setError("Your resume must be 5 MB or smaller.");
+      return;
+    }
+
+    if (selectedFile.size === 0) {
+      setError("The selected file is empty.");
+      return;
+    }
+
+    setFile(selectedFile);
+  }
+
+  function handleInputChange(event) {
+    acceptFile(event.target.files?.[0]);
+
+    // Allows selecting the same file again.
+    event.target.value = "";
+  }
+
+  function handleDrop(event) {
+    event.preventDefault();
     setDragging(false);
+    acceptFile(event.dataTransfer.files?.[0]);
+  }
 
-    const f = e.dataTransfer.files?.[0];
-
-    if (f) {
-      acceptFile(f);
-    }
-  };
-
-  const onBrowse = (e) => {
-    const f = e.target.files?.[0];
-
-    if (f) {
-      acceptFile(f);
-    }
-  };
-
-  const reset = () => {
+  function removeFile() {
     setFile(null);
-    setStage("idle");
+    setAnalysis(null);
     setError("");
 
     if (inputRef.current) {
       inputRef.current.value = "";
     }
-  };
+  }
+
+  async function analyzeResume() {
+    if (!file || isAnalyzing) return;
+
+    setIsAnalyzing(true);
+    setError("");
+    setAnalysis(null);
+
+    try {
+      const formData = new FormData();
+
+      formData.append("resume", file);
+      formData.append("jobDescription", jobDescription);
+
+      const response = await fetch(
+        `${API_URL}/api/ats/analyze`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Unable to analyze your resume."
+        );
+      }
+
+      setAnalysis(data);
+    } catch (err) {
+      setError(
+        err.message ||
+          "Could not connect to the server. Check that your backend is running."
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
+  function startAgain() {
+    setFile(null);
+    setAnalysis(null);
+    setError("");
+    setJobDescription("");
+
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function formatFileSize(bytes) {
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    }
+
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
+
+  const breakdown = [
+    {
+      label: "Skills match",
+      value: analysis?.breakdown?.skillsMatch,
+    },
+    {
+      label: "Experience",
+      value: analysis?.breakdown?.experience,
+    },
+    {
+      label: "Keywords",
+      value: analysis?.breakdown?.keywords,
+    },
+    {
+      label: "Formatting",
+      value: analysis?.breakdown?.formatting,
+    },
+  ];
+
+  const feedbackSections = [
+    {
+      title: "Your strengths",
+      items: analysis?.strengths,
+      icon: CheckCircle2,
+      color: "text-emerald-600",
+      background: "bg-emerald-50",
+    },
+    {
+      title: "Areas to improve",
+      items: analysis?.weaknesses,
+      icon: AlertCircle,
+      color: "text-amber-600",
+      background: "bg-amber-50",
+    },
+    {
+      title: "Missing keywords",
+      items: analysis?.missingKeywords,
+      icon: FileText,
+      color: "text-violet-600",
+      background: "bg-violet-50",
+    },
+    {
+      title: "Recommended actions",
+      items: analysis?.suggestions,
+      icon: Sparkles,
+      color: "text-blue-600",
+      background: "bg-blue-50",
+    },
+  ];
 
   return (
-    <div className="min-h-screen w-full bg-white flex">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-slate-50 text-slate-900">
       <DashboardSidebar />
 
-      {/* Main Content */}
-      <main className="flex-1 min-h-screen flex items-start justify-center px-6 py-14">
-        <div className="w-full max-w-4xl">
-
-          {/* Header */}
-          <h1 className="text-[#0F2A20] text-[26px] font-bold mb-2">
-            Upload Resume
-          </h1>
-
-          <p className="text-[#6B7280] text-sm mb-8 max-w-2xl">
-            Upload your resume (PDF or DOCX) and get an instant ATS score
-            with detailed feedback on what's working and what needs improvement.
-          </p>
-
-          {/* Upload Area */}
-          {stage !== "done" && (
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragging(true);
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={onDrop}
-              className={`rounded-xl border-2 transition-colors ${
-                dragging
-                  ? "border-[#1F9D55] bg-[#F0FBF4]"
-                  : "border-[#CBD5D1] bg-[#F7FBF8]"
-              }`}
-              style={{ borderStyle: "dashed" }}
-            >
-              <div className="flex flex-col items-center justify-center text-center py-14 px-8">
-
-                {/* Idle State */}
-                {stage === "idle" && (
-                  <>
-                    <div className="w-16 h-16 rounded-full bg-white border border-[#DCEAE1] flex items-center justify-center mb-5">
-                      <UploadCloud
-                        size={26}
-                        className="text-[#1F9D55]"
-                        strokeWidth={1.75}
-                      />
-                    </div>
-
-                    <p className="text-[#0F2A20] font-semibold text-[17px] mb-1">
-                      Drag & drop your resume here
-                    </p>
-
-                    <p className="text-[#8A9791] text-sm mb-6">
-                      or click to browse
-                    </p>
-
-                    <div className="flex items-center gap-3 ml-4">
-                      <button
-                        type="button"
-                        onClick={() => inputRef.current?.click()}
-                        className="px-5 py-2.5 rounded-md bg-[#1F9D55] text-white text-sm font-medium flex items-center gap-2 hover:bg-[#1C8B4C] transition-colors"
-                      >
-                        <UploadCloud size={16} />
-                        Choose File
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={!file}
-                        className="px-5 py-2.5 rounded-md bg-white border border-[#CBD5D1] text-[#0F2A20] text-sm font-medium flex items-center gap-2 hover:bg-[#F0FBF4] hover:border-[#1F9D55] transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-[#CBD5D1]"
-                      >
-                        <FileText size={16} />
-                        Analyze Resume
-                      </button>
-                    </div>
-
-                    <input
-                      ref={inputRef}
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      className="hidden"
-                      onChange={onBrowse}
-                    />
-
-                    <p className="text-[#A2ACA6] text-xs mt-6">
-                      Supports PDF, DOC, DOCX (Max 5MB)
-                    </p>
-                  </>
-                )}
-
-                {/* Reading State */}
-                {stage === "reading" && file && (
-                  <>
-                    <div className="w-16 h-16 rounded-full bg-white border border-[#DCEAE1] flex items-center justify-center mb-5">
-                      <FileText
-                        size={24}
-                        className="text-[#1F9D55]"
-                        strokeWidth={1.75}
-                      />
-                    </div>
-
-                    <p className="text-[#0F2A20] font-semibold text-[15px] mb-1">
-                      Reading {file.name}
-                    </p>
-
-                    <p className="text-[#8A9791] text-sm">
-                      {bytesToSize(file.size)} · checking formatting and keywords
-                    </p>
-
-                    <div className="w-40 h-1.5 rounded-full bg-[#DCEAE1] mt-6 overflow-hidden">
-                      <div className="h-full w-1/2 bg-[#1F9D55] rounded-full animate-pulse" />
-                    </div>
-                  </>
-                )}
-              </div>
+      <main className="min-h-screen px-4 py-8 sm:px-8 lg:ml-64 lg:px-10">
+        <div className="mx-auto max-w-5xl">
+          {/* Page heading */}
+          <div className="mb-8">
+            <div className="mb-3 flex items-center gap-2 text-sm text-emerald-700">
+              <Sparkles size={16} />
+              <span className="font-semibold">
+                SkillForge AI Tools
+              </span>
             </div>
-          )}
 
-          {/* Error */}
-          {error && (
-            <p className="text-[#C0392B] text-sm mt-3">
-              {error}
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              ATS Resume Scanner
+            </h1>
+
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+              Upload your resume to get an AI-powered assessment
+              of your skills, experience, keywords, and formatting.
             </p>
-          )}
+          </div>
 
-          {/* Completed File */}
-          {stage === "done" && file && (
-            <div className="rounded-xl border-2 border-[#CBD5D1] bg-[#F7FBF8] p-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+          {/* Upload card */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold">
+                Upload your resume
+              </h2>
 
-                <div className="w-10 h-10 rounded-md bg-white border border-[#DCEAE1] flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2
-                    size={18}
-                    className="text-[#1F9D55]"
-                    strokeWidth={1.75}
-                  />
+              <p className="mt-1 text-sm text-slate-500">
+                Supported formats: PDF and DOCX · Maximum size: 5 MB
+              </p>
+            </div>
+
+            {!file ? (
+              <div
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={handleDrop}
+                className={`rounded-2xl border-2 border-dashed p-8 text-center transition sm:p-12 ${
+                  dragging
+                    ? "border-emerald-500 bg-emerald-50"
+                    : "border-slate-300 bg-slate-50 hover:border-emerald-400"
+                }`}
+              >
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                  <Upload size={27} />
                 </div>
 
-                <div>
-                  <p className="text-[#0F2A20] font-medium text-[15px]">
+                <h3 className="mt-5 font-semibold">
+                  Drag and drop your resume here
+                </h3>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  Or select a file from your computer.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                >
+                  <Upload size={16} />
+                  Browse files
+                </button>
+
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={handleInputChange}
+                  className="hidden"
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 sm:flex-row sm:items-center">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                  <FileCheck size={25} />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="break-all text-sm font-semibold">
                     {file.name}
                   </p>
 
-                  <p className="text-[#8A9791] text-xs">
-                    {bytesToSize(file.size)} · ready for review
+                  <p className="mt-1 text-xs text-slate-500">
+                    {formatFileSize(file.size)} · Ready for analysis
                   </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={removeFile}
+                  aria-label="Remove resume"
+                  className="flex h-9 w-9 items-center justify-center self-end rounded-lg text-slate-500 hover:bg-white hover:text-red-600 sm:self-center"
+                >
+                  <X size={19} />
+                </button>
+              </div>
+            )}
+
+            {/* Optional job description */}
+            <div className="mt-6">
+              <label
+                htmlFor="jobDescription"
+                className="mb-2 block text-sm font-semibold"
+              >
+                Job description
+                <span className="ml-2 font-normal text-slate-400">
+                  Optional
+                </span>
+              </label>
+
+              <textarea
+                id="jobDescription"
+                value={jobDescription}
+                onChange={(event) =>
+                  setJobDescription(event.target.value)
+                }
+                maxLength={10000}
+                rows={5}
+                placeholder="Paste the job description here to compare your resume against a specific role..."
+                className="w-full resize-y rounded-xl border border-slate-200 bg-white p-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+              />
+
+              <p className="mt-2 text-xs text-slate-400">
+                Adding a job description helps identify relevant and
+                potentially missing keywords.
+              </p>
+            </div>
+
+            {/* Error message */}
+            {error && (
+              <div
+                role="alert"
+                className="mt-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+              >
+                <AlertCircle
+                  size={19}
+                  className="mt-0.5 shrink-0"
+                />
+                <p>{error}</p>
+              </div>
+            )}
+
+            {/* Analyze button */}
+            <div className="mt-6 flex flex-col gap-4 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <ShieldCheck size={17} className="text-emerald-600" />
+                <span>Secure server-side AI analysis</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={analyzeResume}
+                disabled={!file || isAnalyzing}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <LoaderCircle
+                      size={18}
+                      className="animate-spin"
+                    />
+                    Analyzing resume...
+                  </>
+                ) : (
+                  <>
+                    See my score
+                    <ArrowRight size={17} />
+                  </>
+                )}
+              </button>
+            </div>
+          </section>
+
+          {/* Analysis results */}
+          {analysis && (
+            <section
+              aria-live="polite"
+              className="mt-8 space-y-6"
+            >
+              {/* Score card */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+                <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+                  <div className="flex h-32 w-32 shrink-0 flex-col items-center justify-center self-center rounded-full border-[7px] border-emerald-500 bg-emerald-50 sm:self-auto">
+                    <span className="text-4xl font-bold text-emerald-700">
+                      {analysis.score}
+                    </span>
+                    <span className="text-xs font-medium text-slate-500">
+                      out of 100
+                    </span>
+                  </div>
+
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Sparkles
+                        size={20}
+                        className="text-emerald-600"
+                      />
+                      <h2 className="text-2xl font-bold">
+                        Your ATS analysis
+                      </h2>
+                    </div>
+
+                    <p className="mt-3 break-all text-sm text-slate-500">
+                      Analyzed file: {analysis.filename}
+                    </p>
+
+                    <p className="mt-3 leading-7 text-slate-700">
+                      {analysis.summary}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-8 border-t border-slate-100 pt-6">
+                  <h3 className="mb-5 font-semibold">
+                    Score breakdown
+                  </h3>
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    {breakdown.map(({ label, value }) => (
+                      <div key={label}>
+                        <div className="mb-2 flex justify-between gap-3 text-sm">
+                          <span className="text-slate-600">
+                            {label}
+                          </span>
+
+                          <span className="font-semibold">
+                            {value}%
+                          </span>
+                        </div>
+
+                        <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.max(0, Number(value) || 0)
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Feedback sections */}
+              <div className="grid gap-5 sm:grid-cols-2">
+                {feedbackSections.map((section) => {
+                  const Icon = section.icon;
 
-                {/* Remove */}
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="w-8 h-8 rounded-md flex items-center justify-center text-[#8A9791] hover:bg-[#EAF3EC] transition-colors"
-                  aria-label="Remove file"
-                >
-                  <X size={16} />
-                </button>
+                  return (
+                    <article
+                      key={section.title}
+                      className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center rounded-xl ${section.background} ${section.color}`}
+                        >
+                          <Icon size={20} />
+                        </div>
 
-                {/* Score */}
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-md bg-[#1F9D55] text-white text-sm font-medium flex items-center gap-1.5 hover:bg-[#1C8B4C] transition-colors"
-                >
-                  See my score
-                  <ArrowRight size={14} />
-                </button>
+                        <h3 className="font-semibold">
+                          {section.title}
+                        </h3>
+                      </div>
 
+                      {section.items?.length > 0 ? (
+                        <ul className="mt-5 space-y-3">
+                          {section.items.map((item, index) => (
+                            <li
+                              key={`${section.title}-${index}`}
+                              className="flex items-start gap-2 text-sm leading-6 text-slate-600"
+                            >
+                              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-5 text-sm text-slate-500">
+                          No items returned for this section.
+                        </p>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
-            </div>
+
+              {/* Disclaimer and rescan */}
+              <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="max-w-2xl text-xs leading-5 text-slate-500">
+                  {analysis.disclaimer ||
+                    "This is an AI-generated estimate, not a guaranteed employer ATS result. Actual screening systems may use different criteria."}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={startAgain}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold hover:bg-slate-50"
+                >
+                  <RotateCcw size={16} />
+                  Scan another resume
+                </button>
+              </div>
+            </section>
           )}
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-8">
-            <div className="h-px bg-[#E5E7EB] flex-1" />
-
-            <span className="text-[#9CA3AF] text-xs font-medium">
-              OR
-            </span>
-
-            <div className="h-px bg-[#E5E7EB] flex-1" />
-          </div>
-
-          {/* Recent Files */}
-          <div className="mb-6">
-            <div className="rounded-xl border border-[#E5E7EB] bg-white divide-y divide-[#F0F1F0]">
-
-              {RECENT_FILES.map((f) => (
-                <button
-                  type="button"
-                  key={f.name}
-                  className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-[#FAFAF9] transition-colors first:rounded-t-xl last:rounded-b-xl"
-                >
-                  <div className="flex items-center gap-3">
-
-                    <FileText
-                      size={18}
-                      className="text-[#6B7280]"
-                      strokeWidth={1.75}
-                    />
-
-                    <div>
-                      <p className="text-[#0F2A20] text-sm font-medium">
-                        Choose from your recent files
-                      </p>
-
-                      <p className="text-[#9CA3AF] text-xs">
-                        Select a previously uploaded resume to analyze again.
-                      </p>
-                    </div>
-
-                  </div>
-
-                  <ChevronRight
-                    size={16}
-                    className="text-[#9CA3AF] flex-shrink-0"
-                  />
-                </button>
-              ))}
-
-            </div>
-          </div>
-
-          {/* Tips */}
-          <div className="rounded-xl bg-[#F0FBF4] border border-[#D7EFDF] p-5 flex items-start justify-between gap-6">
-
-            <div>
-
-              <div className="flex items-center gap-2 mb-3">
-                <Lightbulb
-                  size={17}
-                  className="text-[#1F9D55]"
-                  strokeWidth={1.75}
-                />
-
-                <p className="text-[#0F2A20] text-sm font-semibold">
-                  Tips for a better analysis
-                </p>
-              </div>
-
-              <ul className="space-y-1.5">
-                {TIPS.map((t) => (
-                  <li
-                    key={t}
-                    className="text-[#3F5C46] text-sm flex items-start gap-2"
-                  >
-                    <span className="w-1 h-1 rounded-full bg-[#5F8A6B] mt-2 flex-shrink-0" />
-                    {t}
-                  </li>
-                ))}
-              </ul>
-
-            </div>
-
-            <p
-              className="hidden sm:block text-[#1F9D55] text-sm italic leading-snug whitespace-nowrap mt-1"
-              style={{
-                fontFamily: "'Segoe Print', 'Comic Sans MS', cursive",
-              }}
-            >
-              Better resume
-              <br />
-              = More opportunities
+          {/* Privacy note */}
+          <div className="mt-6 flex items-start gap-3 rounded-xl bg-slate-100 p-4 text-sm text-slate-600">
+            <ShieldCheck
+              size={19}
+              className="mt-0.5 shrink-0 text-emerald-700"
+            />
+            <p className="leading-6">
+              Your resume is processed by the backend for analysis.
+              This code does not save the uploaded file to a database.
+              Avoid uploading sensitive information you do not want
+              processed by an external AI provider.
             </p>
-
           </div>
-
         </div>
       </main>
     </div>

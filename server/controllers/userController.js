@@ -1,6 +1,9 @@
-import User from "../models/User.js"
-import bcrypt from 'bcrypt';
 
+import User from "../models/User.js";
+import bcrypt from "bcrypt";
+import generateToken from "../utils/generateToken.js";
+
+// Register a new user
 export const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -8,86 +11,122 @@ export const registerUser = async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields: name, email, and password'
+        message: "Please provide name, email, and password.",
       });
     }
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (password.length < 8) {
       return res.status(400).json({
         success: false,
-        message: 'User with this email already exists'
+        message: "Password must be at least 8 characters long.",
+      });
+    }
+
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists.",
       });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      name,
-      email,
-      password: hashedPassword
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
     });
 
-    user.password = undefined;
+    const token = generateToken(user);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: 'User registered successfully',
-      data: user
+      message: "User registered successfully.",
+      token,
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+      },
     });
-
   } catch (error) {
-    res.status(500).json({
+    console.error("REGISTER ERROR:", error);
+
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
+    }
+
+    return res.status(500).json({
       success: false,
-      message: 'Server error during registration',
-      error: error.message
+      message: "Server error during registration.",
     });
   }
 };
 
-
-export const loginUser = async(req, res)=>{
-    try{
-    const {email, password} = req.body;
+// Log in an existing user
+export const loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields: email, and password'
+        message: "Please provide email and password.",
       });
     }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: 'User with this email not found'
-      });
-    }
+    const normalizedEmail = email.trim().toLowerCase();
 
-    const ismatch = await bcrypt.compare(password,user.password);
-    if(!ismatch){
-        return res.status(401).json({
-            success:"fail",
-            message:"invaild password"
-        });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'User Login successfully',
-      data: {
-        _id:user._id,
-        name:user.name,
-        email:user.email
-      }
+    const user = await User.findOne({
+      email: normalizedEmail,
     });
 
-    }catch (error) {
-    res.status(500).json({
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password.",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password.",
+      });
+    }
+
+    const token = generateToken(user);
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful.",
+      token,
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
+
+    return res.status(500).json({
       success: false,
-      message: 'Server error during registration',
-      error: error.message
+      message: "Server error during login.",
     });
   }
 };

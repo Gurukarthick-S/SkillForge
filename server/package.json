@@ -18,8 +18,12 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "groq-sdk": "^1.6.0",
+    "jsonwebtoken": "^9.0.3",
+    "mammoth": "^1.13.0",
     "mogoose": "^0.0.1-security",
-    "mongoose": "^9.7.0"
+    "mongoose": "^9.7.0",
+    "multer": "^2.4.0",
+    "pdfjs-dist": "^6.4.299"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
