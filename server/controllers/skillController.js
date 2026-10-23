@@ -1,117 +1,147 @@
-import Skill from '../models/Skill.js';
 
-// Temporary user ID
-// Later we will replace this with req.user._id
+import mongoose from "mongoose";
+import Skill from "../models/Skill.js";
 
 // GET /api/skills
-const getSkills = async (req, res) => {
-    try {
-        const skills = await Skill.find({
-            user: req.user._id // Replace with the actual user ID from the request
-        }).sort({ createdAt: -1 });
+export const getSkills = async (req, res) => {
+  try {
+    const skills = await Skill.find({
+      user: req.user._id,
+    }).sort({ createdAt: -1 });
 
-        res.status(200).json(skills);
-    } catch (error) {
-        console.error("GET SKILLS ERROR:", error);
+    return res.status(200).json(skills);
+  } catch (error) {
+    console.error("GET SKILLS ERROR:", error);
 
-        res.status(500).json({
-            message: error.message
-        });
-    }
+    return res.status(500).json({
+      message: "Failed to fetch skills.",
+    });
+  }
 };
-
 
 // POST /api/skills
-const createSkill = async (req, res) => {
-    try {
-        const {
-            skillName,
-            category,
-            level,
-            completed
-        } = req.body;
+export const createSkill = async (req, res) => {
+  try {
+    const {
+      skillName,
+      category,
+      level,
+      completed,
+      percentage,
+    } = req.body;
 
-        // Check skill name
-        if (!skillName) {
-            return res.status(400).json({
-                message: "skillName is required"
-            });
-        }
-
-        // Check category
-        if (!category) {
-            return res.status(400).json({
-                message: "category is required"
-            });
-        }
-
-        // Create skill
-        const newSkill = new Skill({
-            user: req.user._id, // Replace with the actual user ID from the request 
-            skillName: skillName.trim(),
-            category,
-            level: level || "Beginner",
-            completed: completed || false
-        });
-
-        // Save to MongoDB
-        const savedSkill = await newSkill.save();
-
-        console.log("SKILL CREATED:", savedSkill);
-
-        res.status(201).json(savedSkill);
-
-    } catch (error) {
-        console.error("CREATE SKILL ERROR:", error);
-
-        res.status(500).json({
-            message: error.message
-        });
+    if (
+      typeof skillName !== "string" ||
+      !skillName.trim()
+    ) {
+      return res.status(400).json({
+        message: "A skill name is required.",
+      });
     }
-};
 
+    if (
+      typeof category !== "string" ||
+      !category.trim()
+    ) {
+      return res.status(400).json({
+        message: "A skill category is required.",
+      });
+    }
+
+    const allowedLevels = [
+      "Beginner",
+      "Intermediate",
+      "Advanced",
+      "Expert",
+    ];
+
+    if (
+      level !== undefined &&
+      !allowedLevels.includes(level)
+    ) {
+      return res.status(400).json({
+        message: "Invalid skill level.",
+      });
+    }
+
+    if (
+      completed !== undefined &&
+      typeof completed !== "boolean"
+    ) {
+      return res.status(400).json({
+        message: "Completed must be true or false.",
+      });
+    }
+
+    const skillData = {
+      user: req.user._id,
+      skillName: skillName.trim(),
+      category: category.trim(),
+      level: level || "Beginner",
+      completed: completed ?? false,
+    };
+
+    if (percentage !== undefined) {
+      const numericPercentage = Number(percentage);
+
+      if (
+        !Number.isFinite(numericPercentage) ||
+        numericPercentage < 0 ||
+        numericPercentage > 100
+      ) {
+        return res.status(400).json({
+          message: "Percentage must be between 0 and 100.",
+        });
+      }
+
+      skillData.percentage = numericPercentage;
+    }
+
+    const savedSkill = await Skill.create(skillData);
+
+    return res.status(201).json(savedSkill);
+  } catch (error) {
+    console.error("CREATE SKILL ERROR:", error);
+
+    return res.status(500).json({
+      message: "Failed to create skill.",
+    });
+  }
+};
 
 // DELETE /api/skills/:id
-const deleteSkill = async (req, res) => {
-    try {
-        const { id } = req.params;
+export const deleteSkill = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-        // Find skill
-        const skill = await Skill.findById(id);
-
-        if (!skill) {
-            return res.status(404).json({
-                message: "Skill not found"
-            });
-        }
-
-        // Check ownership
-        if (skill.user.toString() !== req.user._id.toString()) {
-            return res.status(401).json({
-                message: "Not authorized to delete this skill"
-            });
-        }
-
-        // Delete
-        await skill.deleteOne();
-
-        res.status(200).json({
-            id,
-            message: "Skill deleted"
-        });
-
-    } catch (error) {
-        console.error("DELETE SKILL ERROR:", error);
-
-        res.status(500).json({
-            message: error.message
-        });
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        message: "Invalid skill ID.",
+      });
     }
-};
 
+    const skill = await Skill.findOne({
+      _id: id,
+      user: req.user._id,
+    });
 
-export {
-    getSkills,
-    createSkill,
-    deleteSkill
+    if (!skill) {
+      return res.status(404).json({
+        message: "Skill not found.",
+      });
+    }
+
+    await skill.deleteOne();
+
+    return res.status(200).json({
+      id: skill._id,
+      message: "Skill deleted successfully.",
+    });
+  } catch (error) {
+    console.error("DELETE SKILL ERROR:", error);
+
+    return res.status(500).json({
+      message: "Failed to delete skill.",
+    });
+  }
 };

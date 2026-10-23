@@ -9,6 +9,10 @@ import About from "./pages/About";
 import Skills from "./pages/Skills";
 import Resume from "./pages/Resume";
 import Mentor from "./pages/Mentor";
+import Jobs from "./pages/Jobs";
+import ChooseSkill from "./pages/ChooseSkill";
+import LearningPlan from "./pages/LearningPlan";
+import LessonPage from "./pages/LessonPage";
 
 const AppContent = () => {
   const loction = useLocation();
@@ -30,6 +34,10 @@ const AppContent = () => {
             <Route path="/dashboard/skills" element={<Skills />} />
             <Route path="/dashboard/resume" element={<Resume />} />
             <Route path="/dashboard/mentor" element={<Mentor />} />
+            <Route path="/dashboard/jobs" element={<Jobs />} />
+            <Route path="/dashboard/choose-skill" element={<ChooseSkill />} />
+            <Route path="/dashboard/learning-plan" element={<LearningPlan />} /> 
+            <Route path="/dashboard/lesson" element={<LessonPage />} /> 
             {/* 404 Page - catches all unmatched routes */}
             <Route path="*" element={<NotFound />} />
           </Routes>
